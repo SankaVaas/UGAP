@@ -1,0 +1,40 @@
+# UGAP default configuration
+
+reconstruction:
+  backbone: dust3r              # dust3r | mast3r
+  checkpoint: checkpoints/dust3r/DUSt3R_ViT-L_512.pth
+  image_size: 512
+  device: cuda
+
+uncertainty:
+  head_type: evidential_nig     # Normal-Inverse-Gamma evidential head
+  hidden_dim: 128
+  lambda_reg: 0.01              # evidential regularization coefficient
+  checkpoint: checkpoints/uncertainty_head.pt
+
+nbv:
+  strategy: entropy_visibility   # entropy_visibility | random | round_robin
+  uncertainty_threshold: 0.35    # above this -> region flagged "unreliable"
+  max_views: 5                   # budget: max extra views before giving up
+  candidate_view_radius_deg: 30  # sample candidate cameras within this cone
+
+grasping:
+  detector: grconvnet             # grconvnet (default, light) | graspnet_baseline (optional/legacy)
+  checkpoint: checkpoints/grconvnet/cornell_rgbd_iou_0.96
+  input_size: 224
+  min_confidence_to_grasp: 0.65
+  n_grasps: 5
+
+data:
+  cornell_root: data/cornell            # primary grasp benchmark, < 1GB
+  jacquard_root: data/jacquard          # optional secondary benchmark, a few GB
+  graspnet_root: data/graspnet1billion_subset  # optional/legacy, small scene subset only
+  cleargrasp_root: data/cleargrasp
+  tod_root: data/tod
+  sim_sequences_root: data/sim_sequences  # self-collected PyBullet/Isaac Sim
+
+experiment:
+  name: ugap_baseline_v0
+  seed: 42
+  output_dir: outputs/
+  log_every: 10
