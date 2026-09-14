@@ -1,0 +1,28 @@
+# Core
+numpy
+scipy
+matplotlib
+opencv-python
+pillow
+tqdm
+pyyaml
+
+# 3D / geometry
+open3d
+trimesh
+scikit-image
+pybullet   # synthetic multi-view data generation, zero-download
+
+# Deep learning (Colab ships a compatible torch+cuda; do not pin torch here)
+einops
+timm
+
+# Reconstruction backbone (installed from source in 00_setup_colab.ipynb):
+#   git clone https://github.com/naver/dust3r
+# Grasp detector -- GR-ConvNet, PRIMARY (installed from source):
+#   git clone https://github.com/skumra/robotic-grasping
+# GraspNet-baseline (OPTIONAL / legacy, only for the stretch-goal comparison):
+#   git clone https://github.com/graspnet/graspnet-baseline
+
+# Config / experiment tracking
+omegaconf
