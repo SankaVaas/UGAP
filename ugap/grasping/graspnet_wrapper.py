@@ -71,7 +71,8 @@ class GraspNetWrapper:
         """
         Run GraspNet on the fused point cloud, then reject any grasp whose
         contact region has epistemic uncertainty above the configured
-        threshold.
+        threshold -- i.e. don't grasp what the model isn't sure it has
+        reconstructed correctly.
         """
         if self._net is None:
             self._load_model()

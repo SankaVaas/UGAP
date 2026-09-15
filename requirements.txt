@@ -8,7 +8,6 @@ tqdm
 pyyaml
 
 # 3D / geometry
-open3d
 trimesh
 scikit-image
 pybullet   # synthetic multi-view data generation, zero-download

@@ -5,31 +5,23 @@ computed on top of the DUSt3R point cloud -- deliberately not learned, so
 the uncertainty head has an easy job and the evaluation isolates whether
 evidential regression itself helps, not whether a bigger feature extractor
 does.
+
+Uses scipy (cKDTree + manual PCA normal estimation) rather than open3d:
+Open3D does not currently ship Python 3.13 wheels (Colab's default
+runtime as of writing), and pulling in a full point-cloud library just
+for KD-tree queries and normal estimation is unnecessary -- both are a
+few lines with scipy/numpy.
 """
 
 import numpy as np
-
-try:
-    import open3d as o3d
-except ImportError:  # allow import of this module before open3d is installed
-    o3d = None
+from scipy.spatial import cKDTree
 
 
 def compute_local_density(points: np.ndarray, radius: float = 0.02) -> np.ndarray:
     """Number of neighboring points within `radius`, per point (N,)."""
-    if o3d is None:
-        raise ImportError("open3d is required: pip install open3d")
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    kdtree = o3d.geometry.KDTreeFlann(pcd)
-
-    density = np.zeros(len(points), dtype=np.float32)
-    for i, p in enumerate(points):
-        k, idx, _ = kdtree.search_radius_vector_3d(p, radius)
-        density[i] = k
-
-    return density
+    tree = cKDTree(points)
+    neighbor_lists = tree.query_ball_point(points, r=radius)
+    return np.array([len(n) for n in neighbor_lists], dtype=np.float32)
 
 
 def compute_distance_to_nearest_camera(points: np.ndarray, camera_poses: np.ndarray) -> np.ndarray:
@@ -39,21 +31,40 @@ def compute_distance_to_nearest_camera(points: np.ndarray, camera_poses: np.ndar
     return dists.min(axis=1)
 
 
-def compute_normal_variance(points: np.ndarray, radius: float = 0.02) -> np.ndarray:
-    """Local surface normal variance -- high on thin/transparent structures."""
-    if o3d is None:
-        raise ImportError("open3d is required: pip install open3d")
+def compute_normal_variance(points: np.ndarray, radius: float = 0.02, max_nn: int = 30) -> np.ndarray:
+    """
+    Local surface normal variance -- high on thin/transparent structures.
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
-    normals = np.asarray(pcd.normals)
+    For each point: take up to `max_nn` neighbors within `radius`, estimate
+    a normal via PCA (eigenvector of the neighborhood covariance matrix
+    with the smallest eigenvalue), then measure how much those per-point
+    normals disagree with each other within the same neighborhood -- a
+    noisy/ambiguous local surface (thin plates, reflective highlights)
+    gives inconsistent normals, hence high variance.
+    """
+    tree = cKDTree(points)
+    n_points = len(points)
+    variance = np.zeros(n_points, dtype=np.float32)
 
-    kdtree = o3d.geometry.KDTreeFlann(pcd)
-    variance = np.zeros(len(points), dtype=np.float32)
+    # First pass: estimate a normal at every point via local PCA.
+    normals = np.zeros((n_points, 3), dtype=np.float32)
     for i, p in enumerate(points):
-        k, idx, _ = kdtree.search_radius_vector_3d(p, radius)
-        if k < 3:
+        idx = tree.query_ball_point(p, r=radius)
+        if len(idx) < 3:
+            normals[i] = np.array([0.0, 0.0, 1.0])
+            continue
+        if len(idx) > max_nn:
+            idx = np.random.default_rng(0).choice(idx, size=max_nn, replace=False)
+        neighborhood = points[idx]
+        centered = neighborhood - neighborhood.mean(axis=0)
+        cov = centered.T @ centered
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        normals[i] = eigvecs[:, 0]  # eigenvector for the smallest eigenvalue
+
+    # Second pass: variance of neighboring points' normals around each point.
+    for i, p in enumerate(points):
+        idx = tree.query_ball_point(p, r=radius)
+        if len(idx) < 3:
             variance[i] = 0.0
             continue
         neighbor_normals = normals[idx]
