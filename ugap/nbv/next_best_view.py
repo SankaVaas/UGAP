@@ -64,7 +64,7 @@ class NextBestViewPlanner:
         physically reachable / keep the target in frame.
         """
         if self.strategy == "random":
-            return self.random_view(points, uncertainty)
+            return self._random_view(points, uncertainty)
 
         target = self.select_target_region(points, uncertainty)
         scene_radius = np.linalg.norm(points.std(axis=0)) + 1e-6
@@ -92,7 +92,7 @@ class NextBestViewPlanner:
 
         return best_candidate
 
-    def random_view(self, points: np.ndarray, uncertainty: np.ndarray) -> ViewCandidate:
+    def _random_view(self, points: np.ndarray, uncertainty: np.ndarray) -> ViewCandidate:
         target = self.select_target_region(points, uncertainty)
         scene_radius = np.linalg.norm(points.std(axis=0)) + 1e-6
         rng = np.random.default_rng()
